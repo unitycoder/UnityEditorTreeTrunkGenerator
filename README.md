@@ -4,4 +4,4 @@ Use this file to describe your package's features.
 
 Unity Package Manager: Install Package from GIT Url... 
 #####
-     https://github.com/unitycoder/UnityPackageTemplate.git
+     https://github.com/unitycoder/UnityEditorTreeTrunkGenerator.git
