@@ -6,6 +6,11 @@ Unity Package Manager: Install Package from GIT Url...
 #####
      https://github.com/unitycoder/UnityEditorTreeTrunkGenerator.git
 
+### Usage
+- Open is from menu: Tools/Tree Generator
+- Press Randomize to see random results
+- Press Create Prefab to save this tree as prefab
+
 ### Additional Tools
 If you want to create leaf prefabs for the tree generator, can use these also:
 - Create leafs with: https://tools.unitycoder.com/LeafSpriteGenerator/
