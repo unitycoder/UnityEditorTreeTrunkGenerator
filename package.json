@@ -14,7 +14,10 @@
       "displayName": "Sample Leafs",
       "description": "Example leafs and foliage GLTF model. NOTE! Requires git package https://github.com/KhronosGroup/UnityGLTF.git",
       "path": "Samples~/Sample Leafs"
-	}]
+    }
+  ],
+  "dependencies": {
+    "com.unity.render-pipelines.core": "17.4.0",
+    "com.unity.shadergraph": "17.4.0"
+  }
 }
-	
-	
