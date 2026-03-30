@@ -46,6 +46,7 @@ namespace unitycoder.treegenerator
         [SerializeField] string prefabName = "Tree";
         [SerializeField] string savePath = "Assets/GeneratedTrees";
         [SerializeField] bool autoRefresh = true;
+        [SerializeField] bool combineMeshes = true; // Combine trunk/branches into single mesh
 
         // --- Non-serialized ---
         GameObject leafPrefab;
@@ -179,6 +180,7 @@ namespace unitycoder.treegenerator
             EditorPrefs.SetString(PREF_PREFIX + "prefabName", prefabName);
             EditorPrefs.SetString(PREF_PREFIX + "savePath", savePath);
             EditorPrefs.SetBool(PREF_PREFIX + "autoRefresh", autoRefresh);
+            EditorPrefs.SetBool(PREF_PREFIX + "combineMeshes", combineMeshes);
 
             if (leafPrefab != null)
             {
@@ -227,6 +229,7 @@ namespace unitycoder.treegenerator
             prefabName = EditorPrefs.GetString(PREF_PREFIX + "prefabName", prefabName);
             savePath = EditorPrefs.GetString(PREF_PREFIX + "savePath", savePath);
             autoRefresh = EditorPrefs.GetBool(PREF_PREFIX + "autoRefresh", autoRefresh);
+            combineMeshes = EditorPrefs.GetBool(PREF_PREFIX + "combineMeshes", combineMeshes);
 
             leafPrefabGUID = EditorPrefs.GetString(PREF_PREFIX + "leafPrefabGUID", "");
             if (!string.IsNullOrEmpty(leafPrefabGUID))
@@ -286,10 +289,6 @@ namespace unitycoder.treegenerator
             bool changed = false;
 
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-
-            EditorGUILayout.Space(6);
-            EditorGUILayout.LabelField("Tree Generator", EditorStyles.boldLabel);
-            EditorGUILayout.Space(2);
 
             // Preset buttons
             EditorGUILayout.BeginHorizontal();
@@ -413,6 +412,10 @@ namespace unitycoder.treegenerator
                 prefabName = EditorGUILayout.TextField("Prefab Name", prefabName);
                 savePath = EditorGUILayout.TextField("Save Path", savePath);
                 if (EditorGUI.EndChangeCheck()) changed = true;
+
+                EditorGUI.BeginChangeCheck();
+                combineMeshes = EditorGUILayout.Toggle("Combine Trunk/Branches Mesh", combineMeshes);
+                if (EditorGUI.EndChangeCheck()) changed = true;
                 EditorGUI.indentLevel--;
             }
 
@@ -509,6 +512,7 @@ namespace unitycoder.treegenerator
             leafOffsetFromTip = 0.05f;
             randomSeed = 42;
             autoRefresh = true;
+            combineMeshes = true;
         }
 
         bool DrawFloat(ref float val, string label, float min, float max)
@@ -564,17 +568,13 @@ namespace unitycoder.treegenerator
             GameObject root = new GameObject(prefabName);
 
             // Create shared Standard material with trunk color
-            if (!forPrefab)
-            {
-                sharedTrunkMaterial = new Material(Shader.Find("Standard"));
-                sharedTrunkMaterial.name = "TreeBark";
-                sharedTrunkMaterial.color = trunkColor;
-                sharedTrunkMaterial.SetFloat("_Glossiness", 0.15f);
-            }
+            sharedTrunkMaterial = new Material(Shader.Find("Standard"));
+            sharedTrunkMaterial.name = "TreeBark";
+            sharedTrunkMaterial.color = trunkColor;
+            sharedTrunkMaterial.SetFloat("_Glossiness", 0.15f);
 
             var trunkSpine = BuildTrunkSpine();
-            var trunkData = GenerateTubeMesh(trunkSpine, trunkBaseRadius, trunkTopRadius,
-                trunkRadiusCurve, trunkSegments, trunkRadialSegments);
+            var trunkData = GenerateTubeMesh(trunkSpine, trunkBaseRadius, trunkTopRadius, trunkRadiusCurve, trunkSegments, trunkRadialSegments);
             CreateMeshObject("Trunk", trunkData, root.transform, forPrefab);
 
             var branchTips = new List<BranchTip>();
@@ -833,18 +833,11 @@ namespace unitycoder.treegenerator
 
             var mr = go.AddComponent<MeshRenderer>();
 
-            if (forPrefab)
-            {
-                var mat = new Material(Shader.Find("Standard"));
-                mat.name = "TreeBark";
-                mat.color = trunkColor;
-                mat.SetFloat("_Glossiness", 0.15f);
-                mr.sharedMaterial = mat;
-            }
-            else
+            if (!forPrefab)
             {
                 mr.sharedMaterial = sharedTrunkMaterial;
             }
+            // If forPrefab, do not assign any material here. Assignment is handled in CreatePrefab after asset creation.
 
             return go;
         }
@@ -854,44 +847,37 @@ namespace unitycoder.treegenerator
         // ========================================================
         void CreatePrefab()
         {
-            if (!Directory.Exists(savePath))
-            {
-                Directory.CreateDirectory(savePath);
-                AssetDatabase.Refresh();
-            }
+            EnsureFolderExists(savePath);
 
             GameObject treeObj = GenerateTree(true);
             treeObj.name = prefabName;
 
-            string meshFolder = Path.Combine(savePath, prefabName + "_Meshes");
-            if (!Directory.Exists(meshFolder))
-            {
-                Directory.CreateDirectory(meshFolder);
-                AssetDatabase.Refresh();
-            }
+            string meshFolder = AssetPathCombine(savePath, prefabName + "_Meshes");
+            EnsureFolderExists(meshFolder);
 
-            int meshIndex = 0;
-            SaveMeshesRecursive(treeObj.transform, meshFolder, ref meshIndex);
+            // Create bark material asset
+            var trunkMat = new Material(Shader.Find("Standard"));
+            trunkMat.name = prefabName + "_Bark";
+            trunkMat.color = trunkColor;
+            trunkMat.SetFloat("_Glossiness", 0.15f);
 
-            // Save one shared material
-            var mat = new Material(Shader.Find("Standard"));
-            mat.name = prefabName + "_Bark";
-            mat.color = trunkColor;
-            mat.SetFloat("_Glossiness", 0.15f);
-            string matPath = Path.Combine(savePath, prefabName + "_Bark.mat");
+            string matPath = AssetPathCombine(savePath, prefabName + "_Bark.mat");
             matPath = AssetDatabase.GenerateUniqueAssetPath(matPath);
-            AssetDatabase.CreateAsset(mat, matPath);
+            AssetDatabase.CreateAsset(trunkMat, matPath);
 
-            // Assign to all renderers, destroy temp materials
-            var renderers = treeObj.GetComponentsInChildren<MeshRenderer>();
-            foreach (var r in renderers)
+            if (combineMeshes)
             {
-                if (r.sharedMaterial != null && r.sharedMaterial != mat)
-                    DestroyImmediate(r.sharedMaterial);
-                r.sharedMaterial = mat;
+                CombineTreeMeshes(treeObj, trunkMat, meshFolder);
+            }
+            else
+            {
+                SaveAndAssignMeshes(treeObj.transform, meshFolder, trunkMat);
             }
 
-            string prefabPath = Path.Combine(savePath, prefabName + ".prefab");
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            string prefabPath = AssetPathCombine(savePath, prefabName + ".prefab");
             prefabPath = AssetDatabase.GenerateUniqueAssetPath(prefabPath);
 
             PrefabUtility.SaveAsPrefabAssetAndConnect(treeObj, prefabPath, InteractionMode.UserAction);
@@ -899,10 +885,125 @@ namespace unitycoder.treegenerator
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log($"[TreeGenerator] Prefab saved to: {prefabPath}");
-            EditorUtility.DisplayDialog("Tree Generator", $"Prefab saved to:\n{prefabPath}", "OK");
+            Debug.Log("[TreeGenerator] Prefab saved to: " + prefabPath);
+
+            var prefabAsset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (prefabAsset != null)
+                EditorGUIUtility.PingObject(prefabAsset);
 
             DestroyImmediate(treeObj);
+        }
+
+        static string AssetPathCombine(params string[] parts)
+        {
+            return string.Join("/", parts).Replace("\\", "/");
+        }
+
+        void SaveAndAssignMeshes(Transform root, string meshFolder, Material trunkMat)
+        {
+            int meshIndex = 0;
+
+            foreach (var mf in root.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf.sharedMesh == null)
+                    continue;
+
+                bool isGeneratedWoodPart =
+                    mf.gameObject.name == "Trunk" ||
+                    mf.gameObject.name.StartsWith("Branch_");
+
+                if (!EditorUtility.IsPersistent(mf.sharedMesh))
+                {
+                    string meshPath = AssetPathCombine(meshFolder, "mesh_" + meshIndex + ".asset");
+                    meshPath = AssetDatabase.GenerateUniqueAssetPath(meshPath);
+                    AssetDatabase.CreateAsset(mf.sharedMesh, meshPath);
+
+                    Mesh savedMesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
+                    if (savedMesh != null)
+                        mf.sharedMesh = savedMesh;
+
+                    meshIndex++;
+                }
+
+                if (isGeneratedWoodPart)
+                {
+                    var mr = mf.GetComponent<MeshRenderer>();
+                    if (mr != null)
+                        mr.sharedMaterial = trunkMat;
+                }
+            }
+        }
+
+        void CombineTreeMeshes(GameObject treeObj, Material trunkMat, string meshFolder)
+        {
+            var sourceFilters = new List<MeshFilter>();
+
+            foreach (var mf in treeObj.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf.sharedMesh != null && mf.sharedMesh.name == "TubeMesh")
+                    sourceFilters.Add(mf);
+            }
+
+            if (sourceFilters.Count == 0)
+                return;
+
+            var combine = new CombineInstance[sourceFilters.Count];
+            Matrix4x4 rootWorldToLocal = treeObj.transform.worldToLocalMatrix;
+
+            for (int i = 0; i < sourceFilters.Count; i++)
+            {
+                combine[i] = new CombineInstance
+                {
+                    mesh = sourceFilters[i].sharedMesh,
+                    transform = rootWorldToLocal * sourceFilters[i].transform.localToWorldMatrix
+                };
+            }
+
+            var combinedMesh = new Mesh();
+            combinedMesh.name = prefabName + "_CombinedMesh";
+            combinedMesh.CombineMeshes(combine, true, true);
+            combinedMesh.RecalculateBounds();
+            combinedMesh.RecalculateNormals();
+
+            string combinedMeshPath = AssetPathCombine(meshFolder, prefabName + "_Combined.asset");
+            combinedMeshPath = AssetDatabase.GenerateUniqueAssetPath(combinedMeshPath);
+            AssetDatabase.CreateAsset(combinedMesh, combinedMeshPath);
+
+            // Remove old generated trunk/branch objects
+            foreach (var mf in sourceFilters)
+            {
+                if (mf != null && mf.gameObject != null)
+                    DestroyImmediate(mf.gameObject);
+            }
+
+            // Create single combined object
+            var combinedGO = new GameObject("TreeCombined");
+            combinedGO.transform.SetParent(treeObj.transform, false);
+
+            var mfCombined = combinedGO.AddComponent<MeshFilter>();
+            mfCombined.sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>(combinedMeshPath);
+
+            var mrCombined = combinedGO.AddComponent<MeshRenderer>();
+            mrCombined.sharedMaterial = trunkMat;
+        }
+
+        static void EnsureFolderExists(string assetPath)
+        {
+            assetPath = assetPath.Replace("\\", "/");
+
+            if (AssetDatabase.IsValidFolder(assetPath))
+                return;
+
+            string[] split = assetPath.Split('/');
+            string current = split[0];
+
+            for (int i = 1; i < split.Length; i++)
+            {
+                string next = current + "/" + split[i];
+                if (!AssetDatabase.IsValidFolder(next))
+                    AssetDatabase.CreateFolder(current, split[i]);
+                current = next;
+            }
         }
 
         void SaveMeshesRecursive(Transform t, string folder, ref int index)
@@ -910,10 +1011,14 @@ namespace unitycoder.treegenerator
             var mf = t.GetComponent<MeshFilter>();
             if (mf != null && mf.sharedMesh != null)
             {
-                string meshPath = Path.Combine(folder, $"mesh_{index}.asset");
-                meshPath = AssetDatabase.GenerateUniqueAssetPath(meshPath);
-                AssetDatabase.CreateAsset(mf.sharedMesh, meshPath);
-                index++;
+                // Only save mesh if it is not already an asset (not persistent)
+                if (!EditorUtility.IsPersistent(mf.sharedMesh))
+                {
+                    string meshPath = Path.Combine(folder, $"mesh_{index}.asset");
+                    meshPath = AssetDatabase.GenerateUniqueAssetPath(meshPath);
+                    AssetDatabase.CreateAsset(mf.sharedMesh, meshPath);
+                    index++;
+                }
             }
 
             for (int i = 0; i < t.childCount; i++)
