@@ -11,6 +11,11 @@ Unity Package Manager: Install Package from GIT Url...
 - Press Randomize to see random results
 - Press Create Prefab to save this tree as prefab
 
+### Samples
+- If you import the Sample files, first add this git package (to that .glb model and sample animated leafs shadergraph works)
+#####
+     https://github.com/KhronosGroup/UnityGLTF.git
+
 ### Additional Tools
 If you want to create leaf prefabs for the tree generator, can use these also:
 - Create leafs with: https://tools.unitycoder.com/LeafSpriteGenerator/
