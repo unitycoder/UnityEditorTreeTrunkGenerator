@@ -10,6 +10,7 @@ Unity Package Manager: Install Package from GIT Url...
 - Open is from menu: Tools/Tree Generator
 - Press Randomize to see random results
 - Press Create Prefab to save this tree as prefab
+- NOTE: This project is tested with BIRP for now (builtin render pipeline)
 
 ### Samples
 - If you import the Sample files, first add this git package (to that .glb model and sample animated leafs shadergraph works)
