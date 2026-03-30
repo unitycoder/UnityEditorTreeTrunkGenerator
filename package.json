@@ -8,5 +8,13 @@
   "changelogUrl": "https://github.com/unitycoder/UnityEditorTreeTrunkGenerator",
   "documentationUrl": "https://github.com/unitycoder/UnityEditorTreeTrunkGenerator",
   "licensesUrl": "https://github.com/unitycoder/UnityEditorTreeTrunkGenerator",
-  "_fingerprint": "cb9f0bab775d3ccece00f65384c0d4594dc555e6"
+  "_fingerprint": "cb9f0bab775d3ccece00f65384c0d4594dc555e6",
+  "samples": [
+    {
+      "displayName": "Sample Leafs",
+      "description": "Example leafs and foliage GLTF model. NOTE! Requires git package https://github.com/KhronosGroup/UnityGLTF.git",
+      "path": "Samples~/Sample Leafs"
+	}]
 }
+	
+	

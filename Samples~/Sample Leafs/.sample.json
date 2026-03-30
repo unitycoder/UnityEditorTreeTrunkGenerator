@@ -1,0 +1,6 @@
+{
+	"displayName":"Sample Leafs",
+	"interactiveImport": "false",
+	"description":"Example leafs and foliage GLTF model. NOTE! Requires git package https://github.com/KhronosGroup/UnityGLTF.git",
+	"createSeparatePackage": true
+}
