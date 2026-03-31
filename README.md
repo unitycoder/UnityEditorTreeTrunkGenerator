@@ -13,7 +13,7 @@ Unity Package Manager: Install Package from GIT Url...
 - NOTE: This project is tested with BIRP for now (builtin render pipeline)
 
 ### Samples
-- If you import the Sample files, first add this git package (to that .glb model and sample animated leafs shadergraph works)
+- If you import the Sample files, first add this git package (so that .glb model and sample animated leafs shadergraph works)
 #####
      https://github.com/KhronosGroup/UnityGLTF.git
 
